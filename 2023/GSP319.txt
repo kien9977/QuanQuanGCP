@@ -1,0 +1,75 @@
+GCP
+GSP319
+
+
+>> Change your variable environment first
+export PROJECT_ID=$(gcloud config get-value core/project)
+export MONOLITH_IDENTIFIER="fancy-monolith-344"
+export ZONE="us-central1-a"
+export REGION="us-central1"
+export CLUSTER_NAME="fancy-cluster-490"
+export ORDER_IDENTIFIER="fancy-orders-476"
+export PRODUCT_IDENTIFIER="fancy-products-124"
+export FRONTEND_IDENTIFIER="fancy-frontend-474"
+
+# Task 1:
+
+git clone https://github.com/googlecodelabs/monolith-to-microservices.git
+
+cd ~/monolith-to-microservices
+./setup.sh
+
+cd ~/monolith-to-microservices/monolith
+npm start
+
+gcloud services enable cloudbuild.googleapis.com
+
+gcloud builds submit --tag gcr.io/${GOOGLE_CLOUD_PROJECT}/${MONOLITH_IDENTIFIER}:1.0.0 .
+
+
+# Task 2
+
+gcloud config set compute/zone ${ZONE}
+
+gcloud services enable container.googleapis.com
+
+gcloud container clusters create ${CLUSTER_NAME} --num-nodes 3
+
+kubectl create deployment ${MONOLITH_IDENTIFIER} --image=gcr.io/${GOOGLE_CLOUD_PROJECT}/${MONOLITH_IDENTIFIER}:1.0.0
+
+kubectl expose deployment ${MONOLITH_IDENTIFIER} --type=LoadBalancer --port 80 --target-port 8080
+
+# Task 3
+cd ~/monolith-to-microservices/microservices/src/orders
+gcloud builds submit --tag gcr.io/${GOOGLE_CLOUD_PROJECT}/${ORDER_IDENTIFIER}:1.0.0 .
+
+cd ~/monolith-to-microservices/microservices/src/products
+gcloud builds submit --tag gcr.io/${GOOGLE_CLOUD_PROJECT}/${PRODUCT_IDENTIFIER}:1.0.0 .
+
+# Task 4
+kubectl create deployment ${ORDER_IDENTIFIER} --image=gcr.io/${GOOGLE_CLOUD_PROJECT}/${ORDER_IDENTIFIER}:1.0.0
+kubectl expose deployment ${ORDER_IDENTIFIER} --type=LoadBalancer --port 80 --target-port 8081
+
+kubectl create deployment ${PRODUCT_IDENTIFIER} --image=gcr.io/${GOOGLE_CLOUD_PROJECT}/${PRODUCT_IDENTIFIER}:1.0.0
+kubectl expose deployment ${PRODUCT_IDENTIFIER} --type=LoadBalancer --port 80 --target-port 8082
+
+# Task 5
+kubectl get service ${ORDER_IDENTIFIER}
+>> get your external ip address of ${ORDER_IDENTIFIER}
+
+kubectl get service ${PRODUCT_IDENTIFIER}
+>> get your external ip address of ${PRODUCT_IDENTIFIER}
+
+cd ~/monolith-to-microservices/react-app
+nano .env
+
+>> edit localhost to your external ip address of orders and products
+>> example: 34.170.112.112
+
+# Task 6
+cd ~/monolith-to-microservices/microservices/src/frontend
+gcloud builds submit --tag gcr.io/${GOOGLE_CLOUD_PROJECT}/${FRONTEND_IDENTIFIER}:1.0.0 .
+
+# Task 7
+kubectl create deployment ${FRONTEND_IDENTIFIER} --image=gcr.io/${GOOGLE_CLOUD_PROJECT}/${FRONTEND_IDENTIFIER}:1.0.0
+kubectl expose deployment ${FRONTEND_IDENTIFIER} --type=LoadBalancer --port 80 --target-port 8080
